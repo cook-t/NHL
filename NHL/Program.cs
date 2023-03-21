@@ -51,6 +51,7 @@ var nhlGame = new NhlGameApi();
 GameSchedule todaysGames = new();
 List<int> awayTeams = new();
 List<int> homeTeams = new();
+List<int> allTeams = new();
 DataTable dt = new();
 dt.Columns.Add("TeamID", typeof(Int32));
 dt.Columns.Add("TeamName", typeof(String));
@@ -82,37 +83,96 @@ dtTodaysTeamAvgGoals.Columns.Add("L10HomeAvgShots", typeof(Double));
 dtTodaysTeamAvgGoals.Columns.Add("L10HomeAvgShotsAgainst", typeof(Double));
 dtTodaysTeamAvgGoals.Columns.Add("L10HomeAvgTotalGoals", typeof(Double));
 
+DataTable dtPriorGameAverages = new();
 
 
 teams = await nhl.GetActiveTeamsAsync();
 
-//using (SqlCommand cmd = new SqlCommand("SET IDENTITY_INSERT Teams ON INSERT INTO Teams ([TeamID], [Name], [Abbreviation], [City], [TeamName])  VALUES (@TeamID, @Name, @Abbreviation, @City, @TeamName)", conn))
-//{
-//    conn.Open();
-//    cmd.Parameters.Add("@TeamID", SqlDbType.Int);
-//    cmd.Parameters.Add("@Name", SqlDbType.Text);
-//    cmd.Parameters.Add("@Abbreviation", SqlDbType.Text);
-//    cmd.Parameters.Add("@City", SqlDbType.Text);
-//    cmd.Parameters.Add("@TeamName", SqlDbType.Text);
-
-//    foreach (Team team in teams)
-//    {
-//        cmd.Parameters["@TeamID"].Value = team.Id;
-//        cmd.Parameters["@Name"].Value = team.Name;
-//        cmd.Parameters["@Abbreviation"].Value = team.Abbreviation;
-//        cmd.Parameters["@City"].Value = team.LocationName;
-//        cmd.Parameters["@TeamName"].Value = team.TeamName;
-//        cmd.ExecuteNonQuery();
-//    }
-//}
-
 
 todaysGames = await nhlGame.GetGameScheduleByDateAsync(DateTime.Now);
 SplitTodaysTeams();
+BuildTeamData();
 await GetTeamAverages(10, "home");
 await GetTeamAverages(10, "away");
 //await GetTeamAverages(10, null);
 await InsertAvgGoalValues();
+BuildExcelFile();
+
+
+async void BuildTeamData()
+{
+    int gameCount = 10;
+
+    using (SqlCommand cmd = new SqlCommand("TRUNCATE TABLE OutputData", conn) { CommandType = CommandType.Text })
+    {
+        conn.Open();
+        cmd.ExecuteNonQuery();
+    }
+
+    foreach (Nhl.Api.Models.Game.Game game in todaysGames.Dates[0].Games)
+    {
+        using (SqlCommand cmd = new SqlCommand("GetTeamPriorData", conn) { CommandType = CommandType.StoredProcedure })
+        {
+            cmd.Parameters.Add("@TEAMID", SqlDbType.Int);
+            cmd.Parameters.Add("@HOMEAWAY", SqlDbType.Text);
+            cmd.Parameters.Add("@GAMECOUNT", SqlDbType.Int);
+
+            cmd.Parameters["@TEAMID"].Value = game.Teams.AwayTeam.Team.Id;
+            cmd.Parameters["@HOMEAWAY"].Value = "AWAY";
+            cmd.Parameters["@GAMECOUNT"].Value = gameCount;
+            cmd.ExecuteNonQuery();
+
+            cmd.Parameters["@TEAMID"].Value = game.Teams.HomeTeam.Team.Id;
+            cmd.Parameters["@HOMEAWAY"].Value = "HOME";
+            cmd.Parameters["@GAMECOUNT"].Value = gameCount;
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    using (SqlCommand cmd = new SqlCommand("SELECT * FROM OutputData", conn) { CommandType = CommandType.Text })
+    using (SqlDataAdapter da = new SqlDataAdapter(cmd))
+    {
+        da.Fill(dtPriorGameAverages);
+    }
+}
+
+
+async void GetPriorMatchupData()
+{
+    int gameCount = 10;
+
+    using (SqlCommand cmd = new SqlCommand("TRUNCATE TABLE OutputData", conn) { CommandType = CommandType.Text })
+    {
+        conn.Open();
+        cmd.ExecuteNonQuery();
+    }
+
+    foreach (Nhl.Api.Models.Game.Game game in todaysGames.Dates[0].Games)
+    {
+        using (SqlCommand cmd = new SqlCommand("GetTeamPriorData", conn) { CommandType = CommandType.StoredProcedure })
+        {
+            cmd.Parameters.Add("@TEAMID", SqlDbType.Int);
+            cmd.Parameters.Add("@HOMEAWAY", SqlDbType.Text);
+            cmd.Parameters.Add("@GAMECOUNT", SqlDbType.Int);
+
+            cmd.Parameters["@TEAMID"].Value = game.Teams.AwayTeam.Team.Id;
+            cmd.Parameters["@HOMEAWAY"].Value = "AWAY";
+            cmd.Parameters["@GAMECOUNT"].Value = gameCount;
+            cmd.ExecuteNonQuery();
+
+            cmd.Parameters["@TEAMID"].Value = game.Teams.HomeTeam.Team.Id;
+            cmd.Parameters["@HOMEAWAY"].Value = "HOME";
+            cmd.Parameters["@GAMECOUNT"].Value = gameCount;
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    using (SqlCommand cmd = new SqlCommand("SELECT * FROM OutputData", conn) { CommandType = CommandType.Text })
+    using (SqlDataAdapter da = new SqlDataAdapter(cmd))
+    {
+        da.Fill(dtPriorGameAverages);
+    }
+}
 
 
 async void SplitTodaysTeams()
@@ -342,15 +402,57 @@ async Task InsertAvgGoalValues()
 
 //string fileDir = @"C:\Users\cooktyl\Documents\NHL\NHL.xlsx";
 
-ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
-
-string date = DateTime.Now.Month.ToString() + "_" + DateTime.Now.Day.ToString() + "_" + DateTime.Now.Year.ToString();
-
-using (ExcelPackage pck = new ExcelPackage(@"C:\Users\cooktyl\Documents\NHL\NHL_" + date + ".xlsx"))
+void BuildExcelFile()
 {
-    ExcelWorksheet ws = pck.Workbook.Worksheets.Add("Data");
-    ws.Cells["A1"].LoadFromDataTable(dtTodaysTeamAvgGoals, true);
-    pck.Save();
+    ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+
+    string date = DateTime.Now.Month.ToString() + "_" + DateTime.Now.Day.ToString() + "_" + DateTime.Now.Year.ToString();
+    string outputFileDir = @"C:\Users\cooktyl\Documents\NHL\NHL_" + date + ".xlsx";
+    string templateFileDir = @"C:\Users\cooktyl\Documents\NHL\NHLTemplate.xlsx";
+
+    FileInfo newFile = new FileInfo(outputFileDir);
+    FileInfo tempFile = new FileInfo(templateFileDir);
+
+    FileInfo chkExistingFile = new FileInfo(outputFileDir);
+    if (chkExistingFile.Exists)
+    {
+        chkExistingFile.Delete();
+    }
+
+    using (ExcelPackage pck = new ExcelPackage(newFile, tempFile))
+    {
+        int priorMatchupSheetCellNum = 1;
+        //ExcelWorksheet ws = pck.Workbook.Worksheets.Add("Data1");
+        //ExcelWorksheet ws2 = pck.Workbook.Worksheets.Add("Data2");
+        dtPriorGameAverages.Columns.RemoveAt(0);
+        ExcelWorksheet ws = pck.Workbook.Worksheets["Data1.0"];
+        ExcelWorksheet ws2 = pck.Workbook.Worksheets["Data2.0"];
+        ExcelWorksheet ws3 = pck.Workbook.Worksheets["PriorMatchupAvgs"];
+        ws.Cells["A1"].LoadFromDataTable(dtTodaysTeamAvgGoals, true);
+        ws2.Cells["A1"].LoadFromDataTable(dtPriorGameAverages, true);
+
+        //PriorMatchups
+        foreach (Nhl.Api.Models.Game.Game game in todaysGames.Dates[0].Games)
+        {
+            
+            DataTable dtPriorMatchupAverages = new();
+            using (SqlCommand cmd = new SqlCommand("TeamsMatchupHistory", conn) { CommandType = CommandType.StoredProcedure })
+            using (SqlDataAdapter da = new SqlDataAdapter(cmd))
+            {
+                cmd.Parameters.Add("@TEAM1ID", SqlDbType.Int);
+                cmd.Parameters.Add("@TEAM2ID", SqlDbType.Int);
+
+                cmd.Parameters["@TEAM1ID"].Value = game.Teams.HomeTeam.Team.Id;
+                cmd.Parameters["@TEAM2ID"].Value = game.Teams.AwayTeam.Team.Id;
+                da.Fill(dtPriorMatchupAverages);
+                ws3.Cells["A" + priorMatchupSheetCellNum.ToString()].LoadFromDataTable(dtPriorMatchupAverages, true);
+            }
+
+            priorMatchupSheetCellNum = priorMatchupSheetCellNum + 2;
+        }
+
+        pck.Save();
+    }
 }
 
 
