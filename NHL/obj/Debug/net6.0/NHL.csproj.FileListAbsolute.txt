@@ -19,7 +19,6 @@ C:\Users\cooktyl\Documents\OtherProjects\NHL\NHL\bin\Debug\net6.0\Aspose.Cells.d
 C:\Users\cooktyl\Documents\OtherProjects\NHL\NHL\bin\Debug\net6.0\Microsoft.Win32.SystemEvents.dll
 C:\Users\cooktyl\Documents\OtherProjects\NHL\NHL\bin\Debug\net6.0\System.Drawing.Common.dll
 C:\Users\cooktyl\Documents\OtherProjects\NHL\NHL\bin\Debug\net6.0\runtimes\win\lib\net6.0\Microsoft.Win32.SystemEvents.dll
-C:\Users\cooktyl\Documents\OtherProjects\NHL\NHL\bin\Debug\net6.0\runtimes\win\lib\net6.0\System.Drawing.Common.dll
 C:\Users\cooktyl\Documents\OtherProjects\NHL\NHL\bin\Debug\net6.0\System.Text.Encoding.CodePages.dll
 C:\Users\cooktyl\Documents\OtherProjects\NHL\NHL\bin\Debug\net6.0\runtimes\win\lib\net6.0\System.Text.Encoding.CodePages.dll
 C:\Users\cooktyl\Documents\OtherProjects\NHL\NHL\bin\Debug\net6.0\EPPlus.dll
@@ -45,3 +44,4 @@ C:\Users\cooktyl\Documents\OtherProjects\NHL\NHL\bin\Debug\net6.0\runtimes\win-x
 C:\Users\cooktyl\Documents\OtherProjects\NHL\NHL\bin\Debug\net6.0\runtimes\win-x86\native\sni.dll
 C:\Users\cooktyl\Documents\OtherProjects\NHL\NHL\bin\Debug\net6.0\runtimes\unix\lib\netcoreapp2.1\System.Data.SqlClient.dll
 C:\Users\cooktyl\Documents\OtherProjects\NHL\NHL\bin\Debug\net6.0\runtimes\win\lib\netcoreapp2.1\System.Data.SqlClient.dll
+C:\Users\cooktyl\Documents\OtherProjects\NHL\NHL\obj\Debug\net6.0\NHL.sourcelink.json
