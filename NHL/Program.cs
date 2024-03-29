@@ -11,6 +11,7 @@ using Nhl.Api.Models.Game;
 using System.Net.Mail;
 using System.Net;
 using System.Data.SqlClient;
+using Microsoft.VisualBasic.FileIO;
 
 using HttpClient client = new();
 client.DefaultRequestHeaders.Accept.Clear();
@@ -23,13 +24,96 @@ List<Nhl.Api.Models.Team.Teams> teams = new();
 
 var nhlGame = new NhlGameApi();
 
-DateOnly slateDate = DateOnly.FromDateTime(DateTime.Now);
+bool runForTomorrow = true;
+
+using (var webClient = new WebClient())
+{
+    webClient.DownloadFile("https://moneypuck.com/moneypuck/playerData/careers/gameByGame/all_teams.csv", @"C:\Users\cooktyl\Documents\NHL\all_teams.csv");
+}
+
+DateOnly slateDate = (!runForTomorrow) ? DateOnly.FromDateTime(DateTime.Now) : DateOnly.FromDateTime(DateTime.Now.AddDays(1));
 var gamesWeek = await nhl.GetLeagueGameWeekScheduleByDateAsync(slateDate);
 List<Nhl.Api.Models.Schedule.Game> todaysGames = gamesWeek.GameWeek[0].Games;
 DataTable dtPriorGameAverages = new();
+DataTable csvData = new();
+csvData = GetDataTabletFromCSVFile(@"C:\\all_teams.csv");
+UpdateGameDateFormat();
+TruncateAllTeamsTable();
+InsertDataIntoSQLServerUsingSQLBulkCopy(csvData);
 GetPriorMatchupData();
 BuildExcelFile();
 
+
+void UpdateGameDateFormat()
+{
+    foreach (DataRow dr in csvData.Rows)
+    {
+        string origValue = dr["gameDate"].ToString();
+        string newValue = origValue.Substring(4, 2) + "/" + origValue.Substring(6, 2) + "/" + origValue.Substring(0, 4);
+        dr["gameDate"] = newValue;
+    }
+}
+
+DataTable GetDataTabletFromCSVFile(string csv_file_path)
+{
+    DataTable csvData = new DataTable();
+    try
+    {
+        using (TextFieldParser csvReader = new TextFieldParser(csv_file_path))
+        {
+            csvReader.SetDelimiters(new string[] { "," });
+            csvReader.HasFieldsEnclosedInQuotes = true;
+            string[] colFields = csvReader.ReadFields();
+            foreach (string column in colFields)
+            {
+                DataColumn datecolumn = new DataColumn(column);
+                datecolumn.AllowDBNull = true;
+                csvData.Columns.Add(datecolumn);
+            }
+            while (!csvReader.EndOfData)
+            {
+                string[] fieldData = csvReader.ReadFields();
+                //Making empty value as null
+                for (int i = 0; i < fieldData.Length; i++)
+                {
+                    if (fieldData[i] == "")
+                    {
+                        fieldData[i] = null;
+                    }
+                }
+                csvData.Rows.Add(fieldData);
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        return null;
+    }
+    return csvData;
+}
+
+void TruncateAllTeamsTable()
+{
+    using (SqlCommand cmd = new SqlCommand("TRUNCATE TABLE all_teams", conn) { CommandType = CommandType.Text })
+    {
+        conn.Open();
+        cmd.ExecuteNonQuery();
+        conn.Close();
+    }
+}
+
+void InsertDataIntoSQLServerUsingSQLBulkCopy(DataTable csvFileData)
+{
+    using (SqlBulkCopy s = new SqlBulkCopy(conn))
+    {
+        conn.Open();
+        s.DestinationTableName = "all_teams";
+        foreach (var column in csvFileData.Columns)
+            s.ColumnMappings.Add(column.ToString(), column.ToString());
+        s.WriteToServer(csvFileData);
+        conn.Close();
+    }
+}
 
 async void GetPriorMatchupData()
 {
@@ -66,6 +150,8 @@ async void GetPriorMatchupData()
     {
         da.Fill(dtPriorGameAverages);
     }
+
+    conn.Close();
 }
 
 void BuildExcelFile()
