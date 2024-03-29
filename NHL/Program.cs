@@ -24,7 +24,7 @@ List<Nhl.Api.Models.Team.Teams> teams = new();
 
 var nhlGame = new NhlGameApi();
 
-bool runForTomorrow = true;
+bool runForTomorrow = false;
 
 using (var webClient = new WebClient())
 {
