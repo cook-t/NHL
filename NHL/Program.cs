@@ -30,6 +30,7 @@ bool runForTomorrow = false;
 using (var webClient = new WebClient())
 {
     Console.WriteLine("Downloading all_teams.csv...");
+    webClient.Headers.Add("User-Agent: Other");
     webClient.DownloadFile("https://moneypuck.com/moneypuck/playerData/careers/gameByGame/all_teams.csv", @"C:\Users\cooktyl\Documents\NHL\all_teams.csv");
     Console.WriteLine("Download complete.");
 }
